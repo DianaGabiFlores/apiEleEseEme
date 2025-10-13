@@ -7,14 +7,16 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Importar el archivo de rutas que contiene el router
-const rutasFamilias = require('./src/rutas');
+const rutasFamilias = require('./src/rutas/rutas');
 
+app.use(cors({
+  origin: 'http://localhost:4200',
+  methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
 
-// Configuración de Middlewares
-app.use(cors()); // Permite peticiones CORS
-app.use(bodyParser.json()); // Analiza el body de las peticiones como JSON
-app.use(express.json());
-
+app.use(express.json()); // Analiza el body de las peticiones como JSON
+app.use(express.urlencoded({ extended: true }));
 
 // ---------------------------------
 // Montaje de las Rutas de la API
