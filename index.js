@@ -6,6 +6,9 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+app.use(express.json()); 
+app.use(express.urlencoded({ extended: true }));
+
 // Importar el archivo de rutas que contiene el router
 const rutasFamilias = require('./src/rutas/rutas');
 

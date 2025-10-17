@@ -12,7 +12,7 @@ const pool = require('../db');
 // ------------------------------------
 router.get('/familias', async (req, res) => {
   try {
-    console.log("-> Petición GET a /api/familias");
+    console.log("-> Petición GET a /familias");
     // Consulta simple (SELECT)
     const [rows] = await db.execute('SELECT * FROM FAMILIA');
     res.json(rows);
@@ -25,36 +25,34 @@ router.get('/familias', async (req, res) => {
   }
 });
 
-// Ruta para traer todas las familias
-router.get('/familias', async (req, res) => {
+// Ruta para traer palabras que coincidan con la búsqueda
+router.post('/palabras/busqueda', async (req, res) => {
   try {
-    console.log("-> Petición GET a /api/familias");
-    // Consulta simple (SELECT)
-    const [rows] = await db.execute('SELECT * FROM FAMILIA');
-    res.json(rows);
-  } catch (error) {
-    console.error('❌ Error al obtener familias:', error);
-    res.status(500).json({ 
-      error: 'Error interno del servidor al consultar la base de datos',
-      details: error.message
+    const buscador = req.body.info;
+    let palabras;
+    if(buscador == null){
+      palabras = await pool.query(
+        'SELECT Id_Palabra, nombre, descripcion, video FROM PALABRA'
+      );
+    }else{
+      palabras = await pool.query(
+        `SELECT Id_Palabra, P.nombre, P.descripcion, P.video FROM PALABRA P INNER JOIN FAMILIA F ON P.Id_familia = F.ID_Familia WHERE lower(P.nombre) LIKE '%${buscador}%' OR lower(F.nombre) LIKE '%${buscador}%';`
+      );
+    }
+    return res.status(201).json({
+      success: true,
+      message: 'Palabras encontradas',
+      response: palabras[0]
     });
-  }
-});
 
-// Ruta para traer todas las palabras
-router.get('/palabras', async (req, res) => {
-  try {
-    console.log("-> Petición GET a /api/palabras");
-    // Consulta simple (SELECT)
-    const [rows] = await db.execute('SELECT * FROM PALABRAS');
-    res.json(rows);
-  } catch (error) {
-    console.error('❌ Error al obtener familias:', error);
-    res.status(500).json({ 
-      error: 'Error interno del servidor al consultar la base de datos',
-      details: error.message
+  }catch(err){
+    console.error('Error al buscar las palabras deseadas: ', err);
+    res.status(500).json({
+      success: false,
+      message: 'Error interno del servidor',
+      response: null
     });
-  }
+  }  
 });
 
 // Endpoint para registrar un nuevo usuario si es que aún no esta registrado
@@ -72,7 +70,7 @@ router.post('/usuario/crear', async (req, res) => {
       return res.status(409).json({
         success: false,
         message: 'El correo electrónico ya está registrado',
-        usuario: null
+        response: null
       });
     }
 
@@ -96,7 +94,7 @@ router.post('/usuario/crear', async (req, res) => {
     return res.status(201).json({
       success: true,
       message: 'Usuario registrado correctamente',
-      usuario: newUser[0]
+      response: newUser[0]
     });
 
   } catch (err) {
@@ -104,7 +102,7 @@ router.post('/usuario/crear', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error interno del servidor',
-      usuario: null
+      response: null
     });
   }
 });
