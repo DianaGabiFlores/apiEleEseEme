@@ -85,7 +85,7 @@ router.post('/usuario/crear', async (req, res) => {
 
     // Obtener el usuario recién creado para devolverlo en la respuesta
     const [newUser] = await pool.query(
-      `SELECT * 
+      `SELECT ID_User 
        FROM USUARIO 
        WHERE correo = ?`,
       [Correo]
@@ -113,14 +113,37 @@ router.post('/usuario/crear', async (req, res) => {
 router.get('/comentarios/todos', async (req, res) => {
   try {
     const comentarios = await pool.query(
-        'SELECT C.ID_Comentario, U.Nombre, DATE_FORMAT(C.fecha,  "%d %b %Y") as fecha, C.asunto, C.descripcion, C.video, C.imagen, C.Documento, ( SELECT COUNT(*) FROM COMENTARIO C2 WHERE C2.ID_Comentario_respuesta = C.ID_Comentario ) AS Total_Respuestas FROM Comentario C INNER JOIN USUARIO U ON C.ID_Usuario = U.ID_User WHERE C.ID_Comentario_respuesta IS NULL ORDER BY C.ID_Comentario;'
-      );
+        'SELECT C.ID_Comentario, U.Nombre, U.imagen as U_imagen, DATE_FORMAT(C.fecha,  "%d %b %Y") as fecha, C.asunto, C.descripcion, C.video, C.imagen, C.Documento, ( SELECT COUNT(*) FROM COMENTARIO C2 WHERE C2.ID_Comentario_respuesta = C.ID_Comentario ) AS Total_Respuestas FROM Comentario C INNER JOIN USUARIO U ON C.ID_Usuario = U.ID_User WHERE C.ID_Comentario_respuesta IS NULL ORDER BY C.ID_Comentario;'
+    );
 
-    console.log(comentarios[0]);
-    return res.status(201).json({
+    console.log(comentarios);
+    
+    const Comentarios_Replies_Promises = comentarios[0].map(async comentario => {
+      const id = comentario.ID_Comentario;
+      // Extraer los comentarios respuesta
+      const respuestas = await pool.query(
+        `SELECT C.ID_Comentario, U.Nombre, U.imagen as U_imagen, DATE_FORMAT(C.fecha, '%d %b %Y') as fecha, C.asunto, C.descripcion, C.video, C.imagen, C.Documento, 0 AS Total_Respuestas  FROM Comentario C INNER JOIN USUARIO U ON C.ID_Usuario = U.ID_User WHERE C.ID_Comentario_respuesta = ?; `,
+        [id]
+      );
+      const respuestas_respuestas = respuestas[0].map(async respuesta => {
+          return {
+          ...respuesta,
+          respuestas: []
+        };
+      });
+      const respuestas_fianl = await Promise.all(respuestas_respuestas); 
+      return {
+        ...comentario,
+        respuestas: respuestas_fianl
+      };
+    });
+
+    const Comentarios_Replies = await Promise.all(Comentarios_Replies_Promises); 
+
+    return res.status(200).json({ // Changed to 200 OK for GET request
       success: true,
-      message: 'Comentarios encontradas',
-      response: comentarios[0]
+      message: 'Comentarios encontrados',
+      response: Comentarios_Replies
     });
 
   }catch(err){
@@ -131,6 +154,40 @@ router.get('/comentarios/todos', async (req, res) => {
       response: null
     });
   }  
+});
+
+// Endpoint para registrar un nuevo usuario si es que aún no esta registrado
+router.post('/comentario/agregar', async (req, res) => {
+  try {
+    //correo o id
+    const {Id_comentario_padre, Id_usuario, fecha, asunto, descripcion, video, imagen, documento} = req.body;
+
+    const [rows, fields] = await pool.query(
+      ` INSERT INTO COMENTARIO (ID_Usuario, fecha, asunto, descripcion, video, Imagen, Documento, ID_Comentario)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [Id_usuario, fecha, asunto, descripcion, video, imagen, documento, Id_comentario_padre]
+    );
+
+    if (rows.affectedRows === 1) {
+      console.log(`Row inserted successfully. New ID: ${rows.insertId}`);
+    } else {
+      console.log("Insert operation did not affect the expected number of rows.");
+    }
+    
+    return res.status(201).json({
+      success: true,
+      message: 'Comentario registrado correctamente',
+      response: "succesful"
+    });
+
+  } catch (err) {
+    console.error('Error al registrar comentario:', err);
+    res.status(500).json({
+      success: false,
+      message: 'Error interno del servidor',
+      response: null
+    });
+  }
 });
 
 module.exports = router;
