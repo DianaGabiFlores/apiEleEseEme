@@ -68,20 +68,21 @@ router.post('/usuario/crear', async (req, res) => {
     );
 
     // Si esta registrado retornar un falso 
-    if (existingUser.length > 0) {
-      return res.status(409).json({
-        success: false,
-        message: 'El correo electrónico ya está registrado',
-        response: null
-      });
-    }
+    if (existingUser.length < 0) {
 
-    // Insertar el nuevo usuario en la base de datos
-    await pool.query(
-      `INSERT INTO USUARIO (correo, nombre, nickname, imagen) 
-       VALUES (?, ?, ?, ?)`,
-      [Correo, Nombre, Nickname, Imagen]
-    );
+      // return res.status(409).json({
+      //   success: false,
+      //   message: 'El correo electrónico ya está registrado',
+      //   response: null
+      // });
+
+      // Insertar el nuevo usuario en la base de datos
+      await pool.query(
+        `INSERT INTO USUARIO (correo, nombre, nickname, imagen) 
+        VALUES (?, ?, ?, ?)`,
+        [Correo, Nombre, Nickname, Imagen]
+      );
+    }
 
     // Obtener el usuario recién creado para devolverlo en la respuesta
     const [newUser] = await pool.query(
@@ -162,8 +163,9 @@ router.post('/comentario/agregar', async (req, res) => {
     //correo o id
     const {Id_comentario_padre, Id_usuario, fecha, asunto, descripcion, video, imagen, documento} = req.body;
 
+    console.log(req.body);
     const [rows, fields] = await pool.query(
-      ` INSERT INTO COMENTARIO (ID_Usuario, fecha, asunto, descripcion, video, Imagen, Documento, ID_Comentario)
+      ` INSERT INTO COMENTARIO (ID_Usuario, fecha, asunto, descripcion, video, Imagen, Documento, ID_Comentario_respuesta)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [Id_usuario, fecha, asunto, descripcion, video, imagen, documento, Id_comentario_padre]
     );
