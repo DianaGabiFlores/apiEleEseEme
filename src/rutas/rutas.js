@@ -27,18 +27,20 @@ router.get('/familias', async (req, res) => {
 
 // Ruta para traer palabras que coincidan con la búsqueda
 router.post('/palabras/busqueda', async (req, res) => {
+  console.log(req.body);
   try {
     const buscador = req.body.info;
     let palabras;
-    if(buscador == null){
+    if(buscador == null || buscador == "null"){
       palabras = await pool.query(
-        'SELECT Id_Palabra, nombre, descripcion, video FROM PALABRA'
+        'SELECT Id_Palabra, nombre, descripcion, enlace, tipo FROM PALABRA'
       );
     }else{
       palabras = await pool.query(
-        `SELECT Id_Palabra, P.nombre, P.descripcion, P.video FROM PALABRA P INNER JOIN FAMILIA F ON P.Id_familia = F.ID_Familia WHERE lower(P.nombre) LIKE '%${buscador}%' OR lower(F.nombre) LIKE '%${buscador}%';`
+        `SELECT Id_Palabra, P.nombre, P.descripcion, P.enlace, P.tipo FROM PALABRA P INNER JOIN FAMILIA F ON P.Id_familia = F.ID_Familia WHERE lower(P.nombre) LIKE '%${buscador}%' OR lower(F.nombre) LIKE '%${buscador}%';`
       );
     }
+    console.log(palabras[0]);
     return res.status(201).json({
       success: true,
       message: 'Palabras encontradas',
@@ -105,6 +107,30 @@ router.post('/usuario/crear', async (req, res) => {
       response: null
     });
   }
+});
+
+// Ruta para traer todos los comentarios
+router.get('/comentarios/todos', async (req, res) => {
+  try {
+    const comentarios = await pool.query(
+        'SELECT C.ID_Comentario, U.Nombre, DATE_FORMAT(C.fecha,  "%d %b %Y") as fecha, C.asunto, C.descripcion, C.video, C.imagen, C.Documento, ( SELECT COUNT(*) FROM COMENTARIO C2 WHERE C2.ID_Comentario_respuesta = C.ID_Comentario ) AS Total_Respuestas FROM Comentario C INNER JOIN USUARIO U ON C.ID_Usuario = U.ID_User WHERE C.ID_Comentario_respuesta IS NULL ORDER BY C.ID_Comentario;'
+      );
+
+    console.log(comentarios[0]);
+    return res.status(201).json({
+      success: true,
+      message: 'Comentarios encontradas',
+      response: comentarios[0]
+    });
+
+  }catch(err){
+    console.error('Error al traer los comentarios: ', err);
+    res.status(500).json({
+      success: false,
+      message: 'Error interno del servidor',
+      response: null
+    });
+  }  
 });
 
 module.exports = router;
