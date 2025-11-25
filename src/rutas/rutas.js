@@ -69,34 +69,51 @@ router.get('/modulos', async (req, res) => {
 router.post('/examen', async (req, res) => {
   console.log(req.body)
   try {
-    const modulo = req.body.modulo;
-    const preguntas = await pool.query(
+    const {modulo, Id_usuario} = req.body; 
+    const [existingUser] = await pool.query(
+      'SELECT * FROM USUARIO WHERE ID_User = ?',
+      [Id_usuario]
+    );
+    // Si esta registrado retornar un falso 
+    if (existingUser.length > 0) {
+      const queryPreguntas = await pool.query(
         "SELECT P.ID_Pregunta, P.Id_Examen, P.pregunta, P.Id_Respuesta FROM PREGUNTA P INNER JOIN EXAMEN E ON E.ID_Examen = P.Id_Examen AND E.Id_Modulo=?;",
         [modulo]
-    );
-    
-    // Por cada comentario principal traer los comentarios réplicas
-    const Pregutnas_Respuestas_Promises = preguntas[0].map(async pregunta => {
-      const id = pregunta.ID_Pregunta;
-      // Extraer las respuestas por cada pregunta
-      const respuestas = await pool.query(
-        `SELECT R.ID_Respuesta, R.respuesta, R.tipo FROM RESPUESTA R INNER JOIN PREGUNTA P ON P.ID_Pregunta = R.Id_Pregunta WHERE P.ID_Pregunta = ?;`,
-        [id]
-      );
-      const respuesta_final = await Promise.all(respuestas); 
-      return {
-        ...pregunta,
-        respuestas: respuesta_final[0]
-      };
-    });
+      );  
 
-    const Preguntas_Respuestas = await Promise.all(Pregutnas_Respuestas_Promises); 
-    console.log(Preguntas_Respuestas);
+      console.log("Base de datos " + queryPreguntas);
+      const preguntas = shuffle(queryPreguntas[0]);
+      console.log("shuffle " + queryPreguntas);
 
-    return res.status(200).json({ // Changed to 200 OK for GET request
+      // Por cada comentario principal traer los comentarios réplicas
+      const Pregutnas_Respuestas_Promises = preguntas.map(async pregunta => {
+        const id = pregunta.ID_Pregunta;
+        // Extraer las respuestas por cada pregunta
+        const respuestas = await pool.query(
+          `SELECT R.ID_Respuesta, R.respuesta, R.tipo FROM RESPUESTA R INNER JOIN PREGUNTA P ON P.ID_Pregunta = R.Id_Pregunta WHERE P.ID_Pregunta = ?;`,
+          [id]
+        );
+        const respuesta_final = await Promise.all(respuestas); 
+        return {
+          ...pregunta,
+          respuestas: shuffle(respuesta_final[0])
+        };
+      });
+
+      const Preguntas_Respuestas = await Promise.all(Pregutnas_Respuestas_Promises); 
+      console.log(Preguntas_Respuestas);
+
+      return res.status(200).json({ // Changed to 200 OK for GET request
+        success: true,
+        message: 'Preguntas encontrados',
+        response: Preguntas_Respuestas
+      });
+    }
+
+    return res.status(500).json({ // Changed to 200 OK for GET request
       success: true,
-      message: 'Preguntas encontrados',
-      response: Preguntas_Respuestas
+      message: 'No hay un usuario registrado',
+      response: null
     });
 
   }catch(err){
@@ -324,5 +341,13 @@ router.post('/comentario/agregar', async (req, res) => {
     });
   }
 });
+
+function shuffle(array) { 
+  for (let i = array.length - 1; i > 0; i--) { 
+    const j = Math.floor(Math.random() * (i + 1)); 
+    [array[i], array[j]] = [array[j], array[i]]; 
+  } 
+  return array; 
+}; 
 
 module.exports = router;
