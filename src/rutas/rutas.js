@@ -126,6 +126,98 @@ router.post('/examen', async (req, res) => {
   }  
 });
 
+
+router.post('/examen/agregar', async (req, res) => {
+  console.log(req.body)
+  try {
+    const {Id_Modulo, Id_Usuario, calificacion, fecha} = req.body; 
+
+    const [existingUser] = await pool.query(
+      'SELECT * FROM USUARIO WHERE ID_User = ?',
+      [Id_Usuario]
+    );
+
+    // Si esta registrado insertar examen
+    if (existingUser.length > 0) {
+      const intento = await pool.query(
+        'SELECT Intento FROM EXAMEN_USUARIO WHERE Id_Modulo=? ORDER BY Intento DESC;',
+        [Id_Modulo]
+      );
+      console.log( intento[0]);
+      let intentoF = intento[0].length>0? intento[0][0].Intento+1:1;
+      await pool.query(
+        `INSERT INTO EXAMEN_USUARIO (Id_Modulo, Id_Usuario, calificacion, fecha, Intento) 
+        VALUES (?, ?, ?, ?, ?)`,
+        [Id_Modulo, Id_Usuario, calificacion, fecha, intentoF]
+      );
+    }
+
+    return res.status(200).json({ // Changed to 200 OK for GET request
+      success: true,
+      message: 'Calificación encontrada',
+      response: " "
+    });
+    
+
+  }catch(err){
+    console.error('Error al traer las preguntas: ', err);
+    res.status(500).json({
+      success: false,
+      message: 'Error interno del servidor',
+      response: null
+    });
+  }  
+});
+
+// get calificacion mas alta e intento mas reciente
+router.post('/examen/esta', async (req, res) => {
+  console.log(req.body)
+  try {
+    const {Id_Modulo, Id_Usuario} = req.body; 
+
+    const [existingUser] = await pool.query(
+      'SELECT * FROM USUARIO WHERE ID_User = ?',
+      [Id_Usuario]
+    );
+
+    // Si esta registrado insertar examen
+    if (existingUser.length > 0) {
+      const recentScore = await pool.query(
+        'SELECT fecha, calificacion FROM EXAMEN_USUARIO WHERE Id_Modulo =? AND Id_Usuario = ? ORDER BY Intento DESC;',
+        [Id_Modulo, Id_Usuario]
+      );
+
+      const higherScore = await pool.query(
+        'SELECT fecha, calificacion FROM EXAMEN_USUARIO WHERE Id_Modulo =? AND Id_Usuario = ? ORDER BY calificacion DESC;',
+        [Id_Modulo, Id_Usuario]
+      );
+
+      let respuesta = [higherScore[0][0], recentScore[0][0]]
+    
+      // console.log( respuesta);
+      return res.status(200).json({ // Changed to 200 OK for GET request
+        success: true,
+        message: 'Encontradas',
+        response: respuesta
+      });
+    }
+
+    return res.status(200).json({ // Changed to 200 OK for GET request
+      success: true,
+      message: 'Usuario no registrado',
+      response: " "
+    });
+  
+  }catch(err){
+    console.error('Error al traer los registros: ', err);
+    res.status(500).json({
+      success: false,
+      message: 'Error interno del servidor',
+      response: null
+    });
+  }  
+});
+
 // ------------------------------------
 // Ruta para traer palabras que coincidan con la búsqueda
 // Accesible en: /palabras/busqueda
