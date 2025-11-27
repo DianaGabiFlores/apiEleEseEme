@@ -81,11 +81,9 @@ router.post('/examen', async (req, res) => {
         [modulo]
       );  
 
-      console.log("Base de datos " + queryPreguntas);
       const preguntas = shuffle(queryPreguntas[0]);
-      console.log("shuffle " + queryPreguntas);
 
-      // Por cada comentario principal traer los comentarios réplicas
+      // Por cada pregunta con sus respuestas
       const Pregutnas_Respuestas_Promises = preguntas.map(async pregunta => {
         const id = pregunta.ID_Pregunta;
         // Extraer las respuestas por cada pregunta
@@ -94,9 +92,28 @@ router.post('/examen', async (req, res) => {
           [id]
         );
         const respuesta_final = await Promise.all(respuestas); 
+        // console.log(respuesta_final[0]);
+        const enlacesTodas = respuesta_final[0].map(async respuesta => {
+          let enlace = '';
+          const [filas] = await pool.query(
+              `SELECT Enlace FROM PALABRA WHERE nombre = ?;`,
+              [respuesta.respuesta]
+            );
+            
+            if(filas.length > 0){
+              enlace = filas[0].Enlace; 
+            }
+          return {
+            ...respuesta,
+            enlace: enlace
+          };
+        });
+        const finalRespuestas = await Promise.all(enlacesTodas);
+        
+        // console.log(finalRespuestas)
         return {
           ...pregunta,
-          respuestas: shuffle(respuesta_final[0])
+          respuestas: shuffle(finalRespuestas)
         };
       });
 
@@ -173,28 +190,29 @@ router.post('/examen/agregar', async (req, res) => {
 router.post('/examen/esta', async (req, res) => {
   console.log(req.body)
   try {
-    const {Id_Modulo, Id_Usuario} = req.body; 
+    const {modulo, Id_usuario} = req.body; 
 
     const [existingUser] = await pool.query(
       'SELECT * FROM USUARIO WHERE ID_User = ?',
-      [Id_Usuario]
+      [Id_usuario]
     );
 
     // Si esta registrado insertar examen
     if (existingUser.length > 0) {
       const recentScore = await pool.query(
         'SELECT fecha, calificacion FROM EXAMEN_USUARIO WHERE Id_Modulo =? AND Id_Usuario = ? ORDER BY Intento DESC;',
-        [Id_Modulo, Id_Usuario]
+        [modulo, Id_usuario]
       );
 
       const higherScore = await pool.query(
         'SELECT fecha, calificacion FROM EXAMEN_USUARIO WHERE Id_Modulo =? AND Id_Usuario = ? ORDER BY calificacion DESC;',
-        [Id_Modulo, Id_Usuario]
+        [modulo, Id_usuario]
       );
 
-      let respuesta = [higherScore[0][0], recentScore[0][0]]
-    
-      // console.log( respuesta);
+      let respuesta = [higherScore[0][0], recentScore[0][0]];
+
+      console.log(respuesta);
+
       return res.status(200).json({ // Changed to 200 OK for GET request
         success: true,
         message: 'Encontradas',
@@ -291,6 +309,7 @@ router.post('/palabras/palabra', async (req, res) => {
 // // Accesible en: /usuario/crear
 // ------------------------------------
 router.post('/usuario/crear', async (req, res) => {
+  console.log(req.body);
   try {
     const { Correo, Nombre, Nickname, Imagen} = req.body;
     // Verificar si el correo ya está registrado
@@ -299,8 +318,10 @@ router.post('/usuario/crear', async (req, res) => {
       [Correo]
     );
 
+    console.log(existingUser.length)
+
     // Si esta registrado retornar un falso 
-    if (existingUser.length < 0) {
+    if (existingUser.length == 0) {
 
       // return res.status(409).json({
       //   success: false,
@@ -315,7 +336,6 @@ router.post('/usuario/crear', async (req, res) => {
         [Correo, Nombre, Nickname, Imagen]
       );
     }
-
     // Obtener el usuario recién creado para devolverlo en la respuesta
     const [newUser] = await pool.query(
       `SELECT ID_User 
