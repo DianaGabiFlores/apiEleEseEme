@@ -105,7 +105,7 @@ router.post('/examen', async (req, res) => {
             }
           return {
             ...respuesta,
-            enlace: enlace
+            Enlace: enlace
           };
         });
         const finalRespuestas = await Promise.all(enlacesTodas);
